@@ -1,0 +1,11 @@
+node_modules/
+*.log
+.DS_Store
+.claude/
+.samples/
+
+# Build outputs
+dist/
+
+# Test files (keep for development reference)
+# test-server.js

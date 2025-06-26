@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "docc": {
+      "command": "node",
+      "args": [
+        "/Users/angelo/devlocal/docc-mcp/dist/index.js",
+        "--archive-path",
+        "/Users/angelo/devlocal/docc-mcp/.samples"
+      ]
+    }
+  }
+}
