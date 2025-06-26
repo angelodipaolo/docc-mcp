@@ -140,10 +140,29 @@ const BROWSE_ARCHIVE_TOOL: Tool = {
   },
 };
 
+const GET_ARTICLE_TOOL: Tool = {
+  name: 'get_article',
+  description: 'Get detailed information about a specific article or tutorial',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      articleId: {
+        type: 'string',
+        description: 'Article or tutorial identifier or path',
+      },
+      archive: {
+        type: 'string',
+        description: 'DocC archive name',
+      },
+    },
+    required: ['articleId', 'archive'],
+  },
+};
+
 // Register tool handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
-    tools: [SEARCH_TOOL, GET_SYMBOL_TOOL, LIST_ARCHIVES_TOOL, BROWSE_ARCHIVE_TOOL],
+    tools: [SEARCH_TOOL, GET_SYMBOL_TOOL, GET_ARTICLE_TOOL, LIST_ARCHIVES_TOOL, BROWSE_ARCHIVE_TOOL],
   };
 });
 
@@ -171,6 +190,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'list_archives': {
         const archives = await doccManager.listArchives();
         return { content: [{ type: 'text', text: JSON.stringify(archives, null, 2) }] };
+      }
+
+      case 'get_article': {
+        const { articleId, archive } = args as { articleId: string; archive: string };
+        const article = await doccManager.getArticle(articleId, archive);
+        return { content: [{ type: 'text', text: JSON.stringify(article, null, 2) }] };
       }
 
       case 'browse_archive': {

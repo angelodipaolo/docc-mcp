@@ -6,6 +6,7 @@ A Model Context Protocol (MCP) server that exposes Apple DocC documentation arch
 
 - **🔍 Search Documentation**: Find symbols, types, functions across all DocC archives
 - **📖 Symbol Details**: Get detailed information about specific Swift symbols
+- **📄 Article Access**: Get detailed information about tutorials and articles
 - **🗂️ Browse Archives**: Navigate DocC archive structures interactively  
 - **⚡ Real-time Access**: Query current documentation without stale data
 - **🎯 Filtered Search**: Search by symbol type (class, struct, enum, protocol, etc.)
@@ -154,7 +155,20 @@ Get detailed information about a specific symbol.
 }
 ```
 
-#### 4. `browse_archive`
+#### 4. `get_article`
+Get detailed information about a specific article or tutorial.
+
+```json
+{
+  "name": "get_article",
+  "arguments": {
+    "articleId": "meetcomposablearchitecture",
+    "archive": "ComposableArchitecture"
+  }
+}
+```
+
+#### 5. `browse_archive`
 Browse the structure of a DocC archive.
 
 ```json

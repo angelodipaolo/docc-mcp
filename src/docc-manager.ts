@@ -519,6 +519,198 @@ export class DocCArchiveManager {
   }
 
   /**
+   * Extract content from tutorials and articles
+   */
+  private extractTutorialContent(tutorial: any): string {
+    let content = '';
+    
+    if (tutorial.sections) {
+      for (const section of tutorial.sections) {
+        if (section.content) {
+          content += this.extractTextFromContent(section.content) + '\n\n';
+        }
+        
+        // Handle chapters and tutorials within sections
+        if (section.chapters) {
+          for (const chapter of section.chapters) {
+            if (chapter.content) {
+              content += this.extractTextFromContent(chapter.content) + '\n';
+            }
+          }
+        }
+      }
+    }
+    
+    return content.trim();
+  }
+
+  /**
+   * Extract structured sections from tutorials and articles
+   */
+  private extractTutorialSections(tutorial: any): any[] {
+    const sections = [];
+    
+    if (tutorial.sections) {
+      for (const section of tutorial.sections) {
+        const sectionData: any = {
+          kind: section.kind,
+          title: section.title || '',
+          content: section.content ? this.extractTextFromContent(section.content) : '',
+        };
+        
+        // Handle different section types
+        if (section.kind === 'hero') {
+          sectionData.action = section.action;
+        } else if (section.kind === 'volume' && section.chapters) {
+          sectionData.chapters = section.chapters.map((chapter: any) => ({
+            name: chapter.name,
+            content: chapter.content ? this.extractTextFromContent(chapter.content) : '',
+            tutorials: chapter.tutorials || [],
+            image: chapter.image
+          }));
+        } else if (section.kind === 'resources' && section.tiles) {
+          sectionData.resources = section.tiles.map((tile: any) => ({
+            title: tile.title,
+            content: tile.content ? this.extractTextFromContent(tile.content) : '',
+            action: tile.action
+          }));
+        }
+        
+        sections.push(sectionData);
+      }
+    }
+    
+    return sections;
+  }
+
+  /**
+   * Get a specific article or tutorial from an archive
+   */
+  async getArticle(articleId: string, archiveName: string): Promise<any | null> {
+    const cacheKey = `${archiveName}:article:${articleId}`;
+    if (this.symbolCache.has(cacheKey)) {
+      return this.symbolCache.get(cacheKey)!;
+    }
+
+    try {
+      // Find the article file (could be in tutorials/ or documentation/)
+      const articlePath = await this.findArticlePath(articleId, archiveName);
+      
+      if (!articlePath) {
+        return null;
+      }
+
+      const content = await fs.readFile(articlePath, 'utf-8');
+      const article: any = JSON.parse(content);
+      
+      // Create enhanced article with extracted content
+      const enhancedArticle = {
+        ...article,
+        extractedContent: {
+          abstract: article.abstract ? this.extractTextFromContent(article.abstract) : '',
+          content: this.extractTutorialContent(article),
+          sections: this.extractTutorialSections(article),
+          estimatedTime: article.metadata?.estimatedTime || '',
+          category: article.metadata?.category || '',
+          role: article.metadata?.role || '',
+        }
+      };
+      
+      this.symbolCache.set(cacheKey, enhancedArticle);
+      return enhancedArticle;
+    } catch (error) {
+      console.error(`Error getting article ${articleId} from ${archiveName}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Find the file path for an article or tutorial
+   */
+  private async findArticlePath(articleId: string, archiveName: string): Promise<string | null> {
+    // Search all configured paths for the archive
+    for (const basePath of this.archivePaths) {
+      const archivePath = path.join(
+        basePath,
+        archiveName.endsWith('.doccarchive') ? archiveName : `${archiveName}.doccarchive`
+      );
+      
+      try {
+        // Check if archive exists in this path
+        await fs.access(archivePath);
+        
+        // Check if it's a direct path
+        if (articleId.includes('/')) {
+          // Try tutorials first
+          const tutorialPath = path.join(archivePath, 'data', 'tutorials', `${articleId}.json`);
+          try {
+            await fs.access(tutorialPath);
+            return tutorialPath;
+          } catch {
+            // Try documentation path
+            const docPath = path.join(archivePath, 'data', 'documentation', `${articleId}.json`);
+            try {
+              await fs.access(docPath);
+              return docPath;
+            } catch {
+              // Continue with search
+            }
+          }
+        }
+
+        // Search for the article file in both tutorials and documentation
+        const dataPath = path.join(archivePath, 'data');
+        const result = await this.searchForArticleFile(dataPath, articleId);
+        if (result) {
+          return result;
+        }
+      } catch {
+        // Archive doesn't exist in this path, try next
+        continue;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Recursively search for an article file (prioritizing tutorials)
+   */
+  private async searchForArticleFile(dirPath: string, articleId: string): Promise<string | null> {
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      
+      // First check tutorials directory if it exists
+      const tutorialsEntry = entries.find(e => e.isDirectory() && e.name === 'tutorials');
+      if (tutorialsEntry) {
+        const tutorialsPath = path.join(dirPath, 'tutorials');
+        const result = await this.searchForSymbolFile(tutorialsPath, articleId);
+        if (result) return result;
+      }
+      
+      // Then check documentation directory
+      const docEntry = entries.find(e => e.isDirectory() && e.name === 'documentation');
+      if (docEntry) {
+        const docPath = path.join(dirPath, 'documentation');
+        const result = await this.searchForSymbolFile(docPath, articleId);
+        if (result) return result;
+      }
+      
+      // Fall back to searching all directories
+      for (const entry of entries) {
+        if (entry.isDirectory() && entry.name !== 'tutorials' && entry.name !== 'documentation') {
+          const result = await this.searchForSymbolFile(path.join(dirPath, entry.name), articleId);
+          if (result) return result;
+        }
+      }
+    } catch (error) {
+      // Directory might not exist
+    }
+    
+    return null;
+  }
+
+  /**
    * Browse archive structure
    */
   async browseArchive(archiveName: string, browsePath?: string): Promise<any> {
