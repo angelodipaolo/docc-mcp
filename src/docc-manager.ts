@@ -34,6 +34,8 @@ export interface DoccSymbol {
     paths: string[][];
   };
   abstract?: any[];
+  variants?: any[];
+  schemaVersion?: { major: number; minor: number; patch: number };
 }
 
 export interface SearchOptions {
@@ -183,7 +185,11 @@ export class DocCArchiveManager {
   /**
    * Get a specific symbol from an archive with enhanced content
    */
-  async getSymbol(symbolId: string, archiveName: string): Promise<any | null> {
+  async getSymbol(symbolId: string, archiveName: string, options: {
+    includeReferences?: boolean;
+    maxSections?: number;
+    summaryOnly?: boolean;
+  } = {}): Promise<any | null> {
     const cacheKey = `${archiveName}:${symbolId}`;
     if (this.symbolCache.has(cacheKey)) {
       return this.symbolCache.get(cacheKey)!;
@@ -200,20 +206,57 @@ export class DocCArchiveManager {
       const content = await fs.readFile(symbolPath, 'utf-8');
       const symbol: DoccSymbol = JSON.parse(content);
       
-      // Create enhanced symbol with extracted content
-      const enhancedSymbol = {
-        ...symbol,
-        extractedContent: {
-          abstract: symbol.abstract ? this.extractTextFromContent(symbol.abstract) : '',
-          discussion: this.extractDiscussionContent(symbol),
-          parameters: this.extractParameterContent(symbol),
-          returnValue: this.extractReturnValueContent(symbol),
-          availability: this.extractAvailabilityInfo(symbol),
-        }
-      };
+      // Apply filtering based on options
+      const { includeReferences = false, maxSections = 10, summaryOnly = false } = options;
       
-      this.symbolCache.set(cacheKey, enhancedSymbol);
-      return enhancedSymbol;
+      let filteredSymbol: any;
+      
+      if (summaryOnly) {
+        // Return only essential information - heavily truncated for large symbols
+        const abstractText = symbol.abstract ? this.extractTextFromContent(symbol.abstract) : '';
+        filteredSymbol = {
+          identifier: symbol.identifier,
+          metadata: {
+            title: symbol.metadata?.title,
+            role: symbol.metadata?.role,
+            symbolKind: symbol.metadata?.symbolKind
+          },
+          kind: symbol.kind,
+          extractedContent: {
+            abstract: abstractText.length > 1000 ? abstractText.substring(0, 1000) + '...' : abstractText,
+          }
+        };
+      } else {
+        // Create enhanced symbol with optional filtering
+        filteredSymbol = {
+          identifier: symbol.identifier,
+          metadata: symbol.metadata,
+          abstract: symbol.abstract,
+          hierarchy: symbol.hierarchy,
+          kind: symbol.kind,
+          primaryContentSections: symbol.primaryContentSections?.slice(0, maxSections),
+          sections: symbol.sections?.slice(0, maxSections),
+          extractedContent: {
+            abstract: symbol.abstract ? this.extractTextFromContent(symbol.abstract) : '',
+            discussion: this.extractDiscussionContent(symbol),
+            parameters: this.extractParameterContent(symbol),
+            returnValue: this.extractReturnValueContent(symbol),
+            availability: this.extractAvailabilityInfo(symbol),
+          }
+        };
+        
+        // Conditionally include references (often the largest part)
+        if (includeReferences && symbol.references) {
+          filteredSymbol.references = symbol.references;
+        }
+        
+        // Include other fields if not in summary mode
+        if (symbol.variants) filteredSymbol.variants = symbol.variants;
+        if (symbol.schemaVersion) filteredSymbol.schemaVersion = symbol.schemaVersion;
+      }
+      
+      this.symbolCache.set(cacheKey, filteredSymbol);
+      return filteredSymbol;
     } catch (error) {
       console.error(`Error getting symbol ${symbolId} from ${archiveName}:`, error);
       return null;

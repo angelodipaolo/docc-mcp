@@ -107,6 +107,18 @@ const GET_SYMBOL_TOOL: Tool = {
         type: 'string',
         description: 'DocC archive name',
       },
+      includeReferences: {
+        type: 'boolean',
+        description: 'Include symbol references (default: false for large responses)',
+      },
+      maxSections: {
+        type: 'number',
+        description: 'Maximum number of content sections to include (default: 10)',
+      },
+      summaryOnly: {
+        type: 'boolean',
+        description: 'Return only essential symbol information (title, abstract, basic usage)',
+      },
     },
     required: ['symbolId', 'archive'],
   },
@@ -182,8 +194,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'get_symbol': {
-        const { symbolId, archive } = args as { symbolId: string; archive: string };
-        const symbol = await doccManager.getSymbol(symbolId, archive);
+        const { symbolId, archive, includeReferences, maxSections, summaryOnly } = args as { 
+          symbolId: string; 
+          archive: string;
+          includeReferences?: boolean;
+          maxSections?: number;
+          summaryOnly?: boolean;
+        };
+        const symbol = await doccManager.getSymbol(symbolId, archive, {
+          includeReferences,
+          maxSections,
+          summaryOnly
+        });
         return { content: [{ type: 'text', text: JSON.stringify(symbol, null, 2) }] };
       }
 
