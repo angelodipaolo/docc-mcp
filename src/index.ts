@@ -87,7 +87,7 @@ const server = new Server(
 // Tool definitions
 const SEARCH_TOOL: Tool = {
   name: 'search_docc',
-  description: 'Search DocC documentation for symbols, types, or content',
+  description: 'Search DocC documentation for symbols, types, or content using advanced text search',
   inputSchema: {
     type: 'object',
     properties: {
@@ -103,6 +103,10 @@ const SEARCH_TOOL: Tool = {
         type: 'string',
         enum: ['symbol', 'type', 'function', 'class', 'struct', 'enum', 'protocol'],
         description: 'Filter by symbol type (optional)',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum number of results to return (default: 10)',
       },
     },
     required: ['query'],
@@ -187,33 +191,11 @@ const GET_ARTICLE_TOOL: Tool = {
   },
 };
 
-const TEXT_SEARCH_TOOL: Tool = {
-  name: 'text_search_docc',
-  description: 'Performs text-based search against DocC documentation using TF-IDF keyword matching',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      query: {
-        type: 'string',
-        description: 'Text search query with keywords',
-      },
-      archive: {
-        type: 'string',
-        description: 'Optional archive name filter',
-      },
-      limit: {
-        type: 'number',
-        description: 'Maximum number of results to return (default: 10)',
-      },
-    },
-    required: ['query'],
-  },
-};
 
 // Register tool handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
-    tools: [SEARCH_TOOL, GET_SYMBOL_TOOL, GET_ARTICLE_TOOL, LIST_ARCHIVES_TOOL, BROWSE_ARCHIVE_TOOL, TEXT_SEARCH_TOOL],
+    tools: [SEARCH_TOOL, GET_SYMBOL_TOOL, GET_ARTICLE_TOOL, LIST_ARCHIVES_TOOL, BROWSE_ARCHIVE_TOOL],
   };
 });
 
@@ -223,11 +205,36 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
       case 'search_docc': {
-        const { query, archive, type } = args as {
+        const { query, archive, type, limit = 10 } = args as {
           query: string;
           archive?: string;
           type?: string;
+          limit?: number;
         };
+        
+        // Use text search engine if available, otherwise fall back to basic search
+        if (searchEngineReady) {
+          try {
+            const results = await searchEngine.search(query, limit, archive);
+            
+            // Filter by type if specified (text search doesn't have built-in type filtering)
+            let filteredResults = results;
+            if (type) {
+              filteredResults = results.filter(result => 
+                result.kind === type || 
+                result.kind === `${type}s` || // handle plural forms
+                result.kind.toLowerCase().includes(type.toLowerCase())
+              );
+            }
+            
+            return { content: [{ type: 'text', text: JSON.stringify(filteredResults, null, 2) }] };
+          } catch (error) {
+            // Fall back to basic search if text search fails
+            console.warn('Text search failed, falling back to basic search:', error);
+          }
+        }
+        
+        // Fallback to basic DocC manager search (with limited results)
         const results = await doccManager.search(query, { archive, type });
         return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] };
       }
@@ -265,23 +272,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return { content: [{ type: 'text', text: JSON.stringify(structure, null, 2) }] };
       }
 
-      case 'text_search_docc': {
-        if (!searchEngineReady) {
-          return { 
-            content: [{ type: 'text', text: 'Error: Text search engine not available. The search index may still be loading or failed to initialize.' }], 
-            isError: true 
-          };
-        }
-
-        const { query, archive, limit = 10 } = args as { 
-          query: string; 
-          archive?: string; 
-          limit?: number;
-        };
-        
-        const results = await searchEngine.search(query, limit, archive);
-        return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] };
-      }
 
       default:
         throw new Error(`Unknown tool: ${name}`);
