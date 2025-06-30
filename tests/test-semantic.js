@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
-import { DocCArchiveManager } from './dist/docc-manager.js';
-import { SemanticSearchEngine } from './dist/semantic-search.js';
+import { DocCArchiveManager } from '../dist/docc-manager.js';
+import { SemanticSearchEngine } from '../dist/semantic-search.js';
 
 async function testSemanticSearch() {
   console.log('🧪 Testing semantic search with a few symbols...');
   
   try {
     // Initialize managers
-    const doccManager = new DocCArchiveManager(['.samples']);
+    const doccManager = new DocCArchiveManager(['../.samples']);
     const searchEngine = new SemanticSearchEngine();
 
     // Initialize search engine

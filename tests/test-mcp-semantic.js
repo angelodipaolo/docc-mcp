@@ -6,7 +6,7 @@ async function testMCPSemanticSearch() {
   console.log('🧪 Testing semantic search via MCP server...');
   
   // Start the MCP server
-  const server = spawn('node', ['dist/index.js', '--archive-path', '.samples'], {
+  const server = spawn('node', ['../dist/index.js', '--archive-path', '../.samples'], {
     stdio: ['pipe', 'pipe', 'pipe']
   });
 
