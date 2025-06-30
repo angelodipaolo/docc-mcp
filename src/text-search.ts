@@ -42,7 +42,8 @@ export class TextSearchEngine {
   private indexPath: string;
 
   constructor(indexPath: string = '.text-index') {
-    this.indexPath = indexPath;
+    // Resolve to absolute path to avoid issues with working directory
+    this.indexPath = path.resolve(indexPath);
     this.tfidf = new TfIdf();
   }
 
@@ -50,14 +51,16 @@ export class TextSearchEngine {
    * Initialize the text search engine
    */
   async initialize(): Promise<void> {
-    console.log('📝 Initializing text search engine...');
+    console.log(`📝 Initializing text search engine...`);
+    console.log(`📁 Index path: ${this.indexPath}`);
     
     try {
       // Ensure index directory exists
       await fs.mkdir(this.indexPath, { recursive: true });
       console.log('✅ Text search engine initialized successfully');
     } catch (error) {
-      console.error('❌ Failed to initialize text search engine:', error);
+      console.error(`❌ Failed to initialize text search engine at path: ${this.indexPath}`);
+      console.error('Error details:', error);
       throw error;
     }
   }
