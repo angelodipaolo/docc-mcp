@@ -396,7 +396,15 @@ export class DocCArchiveManager {
         } else if (entry.name.endsWith('.json')) {
           // Check if filename matches (with or without .json extension)
           const baseName = entry.name.replace('.json', '');
+          
+          // Try exact match first
           if (baseName === symbolId || entry.name === symbolId) {
+            return fullPath;
+          }
+          
+          // Try case-insensitive match as fallback
+          if (baseName.toLowerCase() === symbolId.toLowerCase() || 
+              entry.name.toLowerCase() === symbolId.toLowerCase()) {
             return fullPath;
           }
         }
@@ -640,9 +648,12 @@ export class DocCArchiveManager {
       const articlePath = await this.findArticlePath(articleId, archiveName);
       
       if (!articlePath) {
+        console.error(`Article not found: articleId="${articleId}", archive="${archiveName}"`);
+        console.error(`Searched archives in paths: ${this.archivePaths.join(', ')}`);
         return null;
       }
 
+      console.log(`Found article at path: ${articlePath}`);
       const content = await fs.readFile(articlePath, 'utf-8');
       const article: any = JSON.parse(content);
       
@@ -663,6 +674,7 @@ export class DocCArchiveManager {
       return enhancedArticle;
     } catch (error) {
       console.error(`Error getting article ${articleId} from ${archiveName}:`, error);
+      console.error(`Error details: ${error instanceof Error ? error.stack : String(error)}`);
       return null;
     }
   }
@@ -671,6 +683,17 @@ export class DocCArchiveManager {
    * Find the file path for an article or tutorial
    */
   private async findArticlePath(articleId: string, archiveName: string): Promise<string | null> {
+    // Parse the articleId to handle different formats
+    let cleanId = articleId;
+    
+    // Handle DocC URLs like "doc://archive.bundle/tutorials/Tutorial"
+    if (articleId.startsWith('doc://')) {
+      const urlParts = articleId.split('/');
+      if (urlParts.length > 2) {
+        cleanId = urlParts.slice(2).join('/');
+      }
+    }
+    
     // Search all configured paths for the archive
     for (const basePath of this.archivePaths) {
       const archivePath = path.join(
@@ -682,19 +705,23 @@ export class DocCArchiveManager {
         // Check if archive exists in this path
         await fs.access(archivePath);
         
-        // Check if it's a direct path
-        if (articleId.includes('/')) {
-          // Try tutorials first
-          const tutorialPath = path.join(archivePath, 'data', 'tutorials', `${articleId}.json`);
+        // Check if it's a direct path with proper structure
+        if (cleanId.includes('/')) {
+          const pathParts = cleanId.split('/');
+          const category = pathParts[0]; // e.g., "tutorials" or "documentation"
+          const filename = pathParts[pathParts.length - 1]; // The actual filename
+          
+          // Try the direct path first
+          const directPath = path.join(archivePath, 'data', category, `${filename}.json`);
           try {
-            await fs.access(tutorialPath);
-            return tutorialPath;
+            await fs.access(directPath);
+            return directPath;
           } catch {
-            // Try documentation path
-            const docPath = path.join(archivePath, 'data', 'documentation', `${articleId}.json`);
+            // Try with the full path as filename
+            const fullPath = path.join(archivePath, 'data', category, `${cleanId.replace('/', '-')}.json`);
             try {
-              await fs.access(docPath);
-              return docPath;
+              await fs.access(fullPath);
+              return fullPath;
             } catch {
               // Continue with search
             }
@@ -703,7 +730,7 @@ export class DocCArchiveManager {
 
         // Search for the article file in both tutorials and documentation
         const dataPath = path.join(archivePath, 'data');
-        const result = await this.searchForArticleFile(dataPath, articleId);
+        const result = await this.searchForArticleFile(dataPath, cleanId);
         if (result) {
           return result;
         }
