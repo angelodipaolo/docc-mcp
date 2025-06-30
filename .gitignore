@@ -3,6 +3,8 @@ node_modules/
 .DS_Store
 .claude/
 .samples/
+.semantic-index/
+.specs/
 
 # Build outputs
 dist/
