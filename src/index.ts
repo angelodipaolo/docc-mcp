@@ -9,7 +9,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { DocCArchiveManager } from './docc-manager.js';
-import { SemanticSearchEngine } from './semantic-search.js';
+import { TextSearchEngine } from './text-search.js';
 
 // Parse command line arguments for archive paths
 function parseArchivePaths(): string[] {
@@ -56,8 +56,8 @@ if (archivePaths.length === 0) {
 }
 const doccManager = new DocCArchiveManager(archivePaths);
 
-// Initialize semantic search engine
-const searchEngine = new SemanticSearchEngine();
+// Initialize text search engine
+const searchEngine = new TextSearchEngine();
 let searchEngineReady = false;
 
 // Initialize search engine asynchronously
@@ -65,10 +65,10 @@ searchEngine.initialize()
   .then(() => searchEngine.loadIndex())
   .then(() => {
     searchEngineReady = true;
-    console.log('🔍 Semantic search engine ready');
+    console.log('🔍 Text search engine ready');
   })
   .catch(error => {
-    console.error('⚠️  Semantic search unavailable:', error.message);
+    console.error('⚠️  Text search unavailable:', error.message);
   });
 
 // Initialize MCP server
@@ -187,15 +187,15 @@ const GET_ARTICLE_TOOL: Tool = {
   },
 };
 
-const SEMANTIC_SEARCH_TOOL: Tool = {
-  name: 'semantic_search_docc',
-  description: 'Performs semantic search against DocC documentation using natural language queries',
+const TEXT_SEARCH_TOOL: Tool = {
+  name: 'text_search_docc',
+  description: 'Performs text-based search against DocC documentation using TF-IDF keyword matching',
   inputSchema: {
     type: 'object',
     properties: {
       query: {
         type: 'string',
-        description: 'Natural language search query',
+        description: 'Text search query with keywords',
       },
       archive: {
         type: 'string',
@@ -213,7 +213,7 @@ const SEMANTIC_SEARCH_TOOL: Tool = {
 // Register tool handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
-    tools: [SEARCH_TOOL, GET_SYMBOL_TOOL, GET_ARTICLE_TOOL, LIST_ARCHIVES_TOOL, BROWSE_ARCHIVE_TOOL, SEMANTIC_SEARCH_TOOL],
+    tools: [SEARCH_TOOL, GET_SYMBOL_TOOL, GET_ARTICLE_TOOL, LIST_ARCHIVES_TOOL, BROWSE_ARCHIVE_TOOL, TEXT_SEARCH_TOOL],
   };
 });
 
@@ -265,10 +265,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return { content: [{ type: 'text', text: JSON.stringify(structure, null, 2) }] };
       }
 
-      case 'semantic_search_docc': {
+      case 'text_search_docc': {
         if (!searchEngineReady) {
           return { 
-            content: [{ type: 'text', text: 'Error: Semantic search engine not available. The embedding model may still be loading or failed to initialize.' }], 
+            content: [{ type: 'text', text: 'Error: Text search engine not available. The search index may still be loading or failed to initialize.' }], 
             isError: true 
           };
         }
