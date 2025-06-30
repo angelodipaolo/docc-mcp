@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { DocCArchiveManager } from './dist/docc-manager.js';
+import { DocCArchiveManager } from '../dist/docc-manager.js';
 
-const manager = new DocCArchiveManager();
+const manager = new DocCArchiveManager(['../.samples']);
 
 async function testServer() {
   console.log('🧪 Testing DocC MCP Server...\n');
