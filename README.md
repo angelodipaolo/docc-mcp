@@ -4,12 +4,13 @@ A Model Context Protocol (MCP) server that exposes Apple DocC documentation arch
 
 ## Features
 
-- **🔍 Search Documentation**: Find symbols, types, functions across all DocC archives
+- **🔍 Advanced Text Search**: Full-text search using TF-IDF algorithm across all DocC archives
 - **📖 Symbol Details**: Get detailed information about specific Swift symbols
 - **📄 Article Access**: Get detailed information about tutorials and articles
 - **🗂️ Browse Archives**: Navigate DocC archive structures interactively  
 - **⚡ Real-time Access**: Query current documentation without stale data
 - **🎯 Filtered Search**: Search by symbol type (class, struct, enum, protocol, etc.)
+- **📊 Smart Indexing**: Automatic text indexing for fast and accurate search results
 
 ## Installation
 
@@ -17,6 +18,64 @@ A Model Context Protocol (MCP) server that exposes Apple DocC documentation arch
 npm install
 npm run build
 ```
+
+## Building the Text Search Index
+
+The server uses an advanced TF-IDF text search engine for fast and accurate documentation search. While the text index is built automatically when the server starts, you can pre-build it for better performance.
+
+### Automatic Index Building
+
+When the MCP server starts, it will:
+1. Initialize the text search engine
+2. Load any existing text index from `.text-index/`
+3. Build the index incrementally as searches are performed
+
+### Manual Index Building
+
+For better performance, especially with large documentation sets, pre-build the text index:
+
+**Using npm script:**
+```bash
+npm run build-text-index -- --archive-path /path/to/your/docc/archives
+```
+
+**Using the built distribution:**
+```bash
+node dist/text-index-builder.js --archive-path /path/to/your/docc/archives
+```
+
+### Index Builder Options
+
+```bash
+# Build index for single archive directory
+npm run build-text-index -- --archive-path ~/my-docs
+
+# Build index for multiple archive directories  
+npm run build-text-index -- --archive-path ~/Project1/docs --archive-path ~/Project2/docs
+
+# Rebuild index from scratch (clears existing index)
+npm run build-text-index -- --archive-path ~/docs --rebuild
+
+# Build index for Xcode-generated documentation
+npm run build-text-index -- --archive-path "~/Library/Developer/Xcode/DerivedData"
+```
+
+### Index Storage
+
+The text search index is stored in `.text-index/` directory and includes:
+- **Document chunks**: Text content split into searchable segments
+- **TF-IDF vectors**: Mathematical representation for search scoring
+- **Metadata**: Archive names, symbol types, URLs, and titles
+- **Statistics**: Document counts and archive information
+
+The index directory is automatically created and can be safely deleted to rebuild from scratch.
+
+### Performance Considerations
+
+- **Initial build time**: 1-10 minutes depending on documentation size
+- **Index size**: Typically 10-50MB for large documentation sets
+- **Search performance**: Sub-second response times after indexing
+- **Memory usage**: ~100-500MB during index building
 
 ## Usage
 
@@ -129,7 +188,7 @@ Lists all available DocC archives with metadata.
 ```
 
 #### 2. `search_docc`
-Search across DocC documentation.
+Search across DocC documentation using advanced TF-IDF text search.
 
 ```json
 {
@@ -137,7 +196,8 @@ Search across DocC documentation.
   "arguments": {
     "query": "SwiftSyntax",
     "archive": "SwiftSyntax",
-    "type": "struct"
+    "type": "struct",
+    "limit": 10
   }
 }
 ```
@@ -236,10 +296,12 @@ This will:
 
 ## Performance
 
-- **Caching**: Archives and symbols are cached for fast repeated access
-- **Search limits**: Results limited to 50 per query for performance
-- **Lazy loading**: Archives loaded on-demand
-- **File limits**: Search limited to 100 files per archive for performance
+- **Text Search Engine**: Advanced TF-IDF algorithm provides fast, relevance-ranked results
+- **Intelligent Caching**: Archives and symbols are cached for fast repeated access
+- **Configurable Limits**: Search results limited to 10 per query by default (configurable)
+- **Lazy Loading**: Archives loaded on-demand to minimize memory usage
+- **Chunked Content**: Large documents split into searchable segments for better performance
+- **Persistent Index**: Text search index saved to disk for fast server restarts
 
 ## DocC Integration
 
@@ -262,6 +324,8 @@ swift package generate-documentation --target MyLibrary
 - ✅ Abstract/summary text
 - ✅ Platform availability information
 - ✅ Module organization
+- ✅ Full-text search with TF-IDF ranking
+- ✅ Content chunking for large documents
 
 ## License
 
