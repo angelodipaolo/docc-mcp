@@ -3,7 +3,9 @@ node_modules/
 .DS_Store
 .claude/
 .samples/
+.inactive-samples/
 .semantic-index/
+.text-index/
 .specs/
 
 # Build outputs

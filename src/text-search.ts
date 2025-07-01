@@ -43,7 +43,7 @@ export class TextSearchEngine {
 
   constructor(indexPath: string = '.text-index') {
     // Resolve to absolute path to avoid issues with working directory
-    this.indexPath = path.resolve(indexPath);
+    this.indexPath = path.resolve(process.cwd(), indexPath);
     this.tfidf = new TfIdf();
   }
 
